@@ -16,6 +16,16 @@ class ColorizerNet(object):
                poolsize, nonlin):
     """Builds a model to colorize greyscale images.
 
+         [GREYSCALE INPUT IMAGE]
+           |                |
+    [CONV+MP LAYER]         |
+           |                |
+    [CONV+MP LAYER]         |
+           |                |
+     [PROJ LAYER]      [PROJ LAYER]
+           |                |
+          [COLOR OUTPUT IMAGE]
+
     Args:
       rng: (np.random.RandomState) Used to initialize weights.
       image_shape: (tuple of len 2) (x pixels, y pixels)
@@ -68,9 +78,9 @@ class ColorizerNet(object):
         n_out=np.prod(image_shape) * 3,
         nonlin=nonlin)
 
+    #TODO  everything below here is wrong
     # Fourth layer 
     return
-    #TODO adapt everything below here
 
     # the cost we minimize during training is the NLL of the model
     cost = layer3.negative_log_likelihood(y)

@@ -60,7 +60,7 @@ class MaxPoolLayer(object):
       poolsize: (tuple of len 2) (num rows, num cols) The downsampling factor.
       nonlin: (T.elemwise.Elemwise) The nonlinearity applied to layer output.
     """
-    print "Creating a max pooling layer..."
+    print 'Creating a max pooling layer...'
     assert image_shape[1] == filter_shape[1]
     self.input = inp
 
@@ -72,9 +72,12 @@ class MaxPoolLayer(object):
     W_bound = Bound(nonlin, fan_in + fan_out)
     self.W = theano.shared(
       np.asarray(
-        rng.uniform(low=-W_bound, high=W_bound, size=filter_shape),
+        rng.uniform(
+          low=-W_bound,
+          high=W_bound,
+          size=filter_shape),
         dtype=theano.config.floatX),
-      borrow=True) # TODO look this up.
+      borrow=True)
 
     # Each output feature map has its own bias.
     b_values = np.zeros((filter_shape[0],), dtype=theano.config.floatX)
@@ -105,15 +108,15 @@ class HiddenLayer(object):
 
     Args:
       rng: (np.random.RandomState) Used to initialize weights.
-      inp: (T.dtensor4) Input images of shape image_shape.
+      inp: (T.dmatrix) Tensor of shape (batch_size, n_in).
       n_in: (int) Fan in.
       n_out: (int) Fan out.
       nonlin: (T.elemwise.Elemwise) The nonlinearity applied to layer output.
     """
-    print "Creating a hidden layer..."
+    print 'Creating a hidden layer...'
     self.input = inp
 
-    # Initialize weight matrix.
+    # Initialize W with random weights.
     W_bound = Bound(nonlin, n_in + n_out)
     W_values = np.asarray(
       rng.uniform(
@@ -155,7 +158,8 @@ class ProjectionLayer(object):
         image height, image width)
       nonlin: (T.elemwise.Elemwise) The nonlinearity applied to layer output.
     """
-    print "Creating a projection layer..."
+    print 'Creating a projection layer...'
+    inp = inp.reshape(input_shape[:2] + [np.prod(input_shape[2:])])
     self.input = inp
 
     # Initialize W with random weights.
@@ -164,8 +168,14 @@ class ProjectionLayer(object):
               (1, output_shape[3] / input_shape[3]))
     fan_out = output_shape[1]
     bound = Bound(nonlin, fan_in + fan_out)
-    W_values = np.zeros()
-    self.W
+
+    W_values = np.diag(
+      rng.uniform(
+        high=bound,
+        low=-bound,
+        size=(inp.shape[2])),
+      dtype=theano.config.floatX)
+    self.W = theano.shared(value=W_values, name='W', borrow=True)
     self.b
 
     self.params = [self.W, self.b]

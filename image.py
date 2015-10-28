@@ -4,8 +4,16 @@ from scipy import misc
 
 
 def LoadColorAndGreyscaleImages(path):
-  im = misc.imread(path)
-  return im, misc.fromimage(misc.toimage(im), flatten=True)
+  try:
+    color = misc.imread(path)
+    if len(color.shape) == 3 and color.shape[2] == 3:
+      return color, misc.fromimage(misc.toimage(color), flatten=True)
+    else:
+      print "Skipping greyscale image."
+      return None, None
+  except Exception as e:
+    print e
+    return None, None
 
 
 def DownsampledPatch(image, max_x, max_y):

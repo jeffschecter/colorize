@@ -21,4 +21,4 @@ def DownsampledPatch(image, max_x, max_y):
   scale = max(x_ratio, y_ratio)
   return misc.imresize(
     misc.imresize(image, scale)[:max_y,:max_x],
-    (max_x, max_y))
+    (max_y, max_x))

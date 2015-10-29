@@ -9,10 +9,8 @@ def LoadColorAndGreyscaleImages(path):
     if len(color.shape) == 3 and color.shape[2] == 3:
       return color, misc.fromimage(misc.toimage(color), flatten=True)
     else:
-      print "Skipping greyscale image."
       return None, None
   except Exception as e:
-    print e
     return None, None
 
 

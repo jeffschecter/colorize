@@ -226,5 +226,5 @@ def Train(num_batches, validate_every_n_batches, height, width, batch_size,
     loader_process.join()
 
   test_err = Test(batch_size, test_images, net, val_fn)
-  return epochs, net, test_err
+  return batch_stats, validation_stats, test_err, net
   

@@ -23,14 +23,14 @@ from scipy import misc
 # Utils.                                                                      #
 # --------------------------------------------------------------------------- #
 
-def PrintShapes(net):
-    print "{layer} {in} => {out}".format(
+def PrintNetworkShape(net):
+    print "{layer} {inshape} => {outshape}".format(
         layer=net.__class__.__name__,
-        in=getattr(net, "input_shape", ""),
-        out=getattr(net, "output_shape", ""))
+        inshape=getattr(net, "input_shape", ""),
+        outshape=getattr(net, "output_shape", ""))
     input_layer = getattr(net, "input_layer", None)
     if input_layer:
-        PrintShapes(input_layer)
+        PrintNetworkShape(input_layer)
 
 
 # --------------------------------------------------------------------------- #

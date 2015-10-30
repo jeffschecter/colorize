@@ -14,8 +14,10 @@ def main():
   handles = [os.path.join(IMDIR, h) for h in os.listdir(IMDIR)]
   np.random.shuffle(handles)
   print "Found {l} image handles".format(l=len(handles))
+  print "\nBuilding network..."
   net, train_fn, val_fn = convnet.CreateTheanoExprs(SIZE, SIZE, 0.01)
-  convnet.PrintShape(net)
+  convnet.PrintNetworkShape(net)
+  print "\nStarting Train / Validate / Test procedure..."
   batch_stats, val_stats, err, net  = convnet.Train(
       num_batches=6,
       validate_every_n_batches=2,

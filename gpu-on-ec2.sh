@@ -1,4 +1,6 @@
 #!/bin/bash
 
 ami="ami-b36981d8"
-ami="ami-b141a2f5" # has Theano and CUDA pre-installed I think?
+# http://markus.com/install-theano-on-aws/
+# has Theano and CUDA pre-installed I think?
+ami="ami-b141a2f5"

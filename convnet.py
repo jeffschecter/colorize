@@ -4,10 +4,11 @@ import ctypes
 import multiprocessing
 import os
 import random
-import numpy as np
 import random
-import scipy as sp
 import time
+
+import numpy as np
+import scipy as sp
 
 import lasagne
 import theano
@@ -16,6 +17,20 @@ import theano.tensor as T
 import image
 
 from scipy import misc
+
+
+# --------------------------------------------------------------------------- #
+# Utils.                                                                      #
+# --------------------------------------------------------------------------- #
+
+def PrintShapes(net):
+    print "{layer} {in} => {out}".format(
+        layer=net.__class__.__name__,
+        in=getattr(net, "input_shape", ""),
+        out=getattr(net, "output_shape", ""))
+    input_layer = getattr(net, "input_layer", None)
+    if input_layer:
+        PrintShapes(input_layer)
 
 
 # --------------------------------------------------------------------------- #

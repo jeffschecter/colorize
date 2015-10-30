@@ -164,7 +164,7 @@ def LoadImages(handles, height, width, batch_size, shared_images,
       im = image.DownsampledPatch(im, width, height)
     except Exception as e:
       continue
-    shared_images[loaded] = 255 - im
+    shared_images[loaded] = 256 - im
     loaded += 1
   load_time = time.time() - mark
   if timer:
@@ -270,7 +270,7 @@ def Train(num_batches, validate_every_n_batches, height, width, batch_size,
              "Error = {e:.5f}.\n").format(
                 s=len(val_images), t=val_time, e=np.mean(val_errs))
 
-    # Sowe know the next batch of training images is ready
+    # So we know the next batch of training images is ready
     image_loader_process.join()
     batch_stats.append((b, batch_err, batch_time, timer.value))
 

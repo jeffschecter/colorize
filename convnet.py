@@ -198,7 +198,7 @@ def Train(num_batches, validate_every_n_batches, height, width, batch_size,
            "Last time = {t} seconds. "
            "Last error = {e:.5f}.".format(
               b=b, s=batch_size, t=batch_time, e=batch_err)
-    loader_process = multiprocessing.Process(
+    image_loader_process = multiprocessing.Process(
         target=LoadImages,
         args=[train_handles, height, width, batch_size, flat_shared_memory])
     images = np.array(flat_shared_memory).reshape(
@@ -223,7 +223,7 @@ def Train(num_batches, validate_every_n_batches, height, width, batch_size,
           s=len(val_images), t=val_time, e=np.mean(val_errs))
 
     # Sowe know the next batch of training images is ready
-    loader_process.join()
+    image_loader_process.join()
 
   test_err = Test(batch_size, test_images, net, val_fn)
   return batch_stats, validation_stats, test_err, net

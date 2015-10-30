@@ -1,5 +1,6 @@
 #!/bin/python
 
+import ctypes
 import multiprocessing
 import os
 import random
@@ -141,6 +142,11 @@ def CreateTheanoExprs(height, width, learning_rate):
 #   6. GOTO 3                                                                 #
 # --------------------------------------------------------------------------- #
 
+def SharedArray(shape, ctype):
+  shared_array_base = multiprocessing.Array(ctype, np.product(shape))
+  return np.ctypeslib.as_array(shared_array_base.get_obj()).reshape(shape)
+
+
 def LoadImages(handles, height, width, batch_size, shared_images,
                random=True, timer=None):
   processed = 0
@@ -158,8 +164,7 @@ def LoadImages(handles, height, width, batch_size, shared_images,
       im = image.DownsampledPatch(im, width, height)
     except Exception as e:
       continue
-    offset = loaded * imsize
-    shared_images[offset:offset + imsize] = 255 - im.flatten()
+    shared_images[loaded] = 255 - im
     loaded += 1
   load_time = time.time() - mark
   if timer:
@@ -172,18 +177,16 @@ def ValidationTestTrainSplit(handles, val_set_size, test_set_size,
   np.random.shuffle(handles)
 
   # Validation
-  flat_val_images = np.zeros(height * width * 3 * val_set_size)
+  val_images = np.zeros((val_set_size, height, width, 3))
   offset = LoadImages(
-      handles, height, width, val_set_size, flat_val_images,
+      handles, height, width, val_set_size, val_images,
       random=False)
-  val_images = flat_val_images.reshape((val_set_size, height, width, 3))
 
   # Testing
-  flat_test_images = np.zeros(height * width * 3 * test_set_size)
+  test_images = np.zeros((test_set_size, height, width, 3))
   offset += LoadImages(
-      handles[offset:], height, width, test_set_size, flat_test_images,
+      handles[offset:], height, width, test_set_size, test_images,
       random=False)
-  test_images = flat_test_images.reshape((test_set_size, height, width, 3))
 
   # Training
   train_handles = handles[offset:]
@@ -225,9 +228,8 @@ def Train(num_batches, validate_every_n_batches, height, width, batch_size,
 
   # Memory space to shared with image loader running in background process
   timer = multiprocessing.Value('d', 0.0)
-  flat_shared_memory = multiprocessing.Array(
-      "H", height * width * 3 * batch_size)
-  LoadImages(train_handles, height, width, batch_size, flat_shared_memory)
+  shared_memory = SharedArray((batch_size, height, width, 3), ctypes.c_uint8)
+  LoadImages(train_handles, height, width, batch_size, shared_memory)
 
   # Record keeping
   batch_stats = []
@@ -235,9 +237,7 @@ def Train(num_batches, validate_every_n_batches, height, width, batch_size,
   batch_err = 1
   batch_time = 0
 
-  # The shared array copying is very very slow.
-  # Perhaps I can speed it up with this?
-  # http://stackoverflow.com/questions/5549190/
+  # Iterate through training batches
   print "Starting training..."
   for b in xrange(num_batches):
     print ("Training batch {b} of {s} images. "
@@ -245,20 +245,13 @@ def Train(num_batches, validate_every_n_batches, height, width, batch_size,
            "Last load time = {l:.2f} seconds. "
            "Last error = {e:.5f}.").format(
               b=b, s=batch_size, t=batch_time, l=timer.value, e=batch_err)
+    images = np.array(shared_memory)
+    mark = time.time()
     image_loader_process = multiprocessing.Process(
         target=LoadImages,
-        args=[train_handles, height, width, batch_size, flat_shared_memory],
+        args=[train_handles, height, width, batch_size, shared_memory],
         kwargs={"timer": timer})
     image_loader_process.start()
-    mark = time.time()
-    imdata = np.array(flat_shared_memory)
-    memread_time = time.time() - mark
-    print "Memread in {t}".format(t=memread_time)
-    mark = time.time()
-    images = imdata.reshape((batch_size, height, width, 3))
-    reshape_time = time.time() - mark
-    print "Reshape in {t}".format(t=reshape_time)
-    mark = time.time()
     batch_err = train_fn(images).mean()
     batch_time = time.time() - mark
 
@@ -279,8 +272,7 @@ def Train(num_batches, validate_every_n_batches, height, width, batch_size,
 
     # Sowe know the next batch of training images is ready
     image_loader_process.join()
-    load_time = timer.value
-    batch_stats.append((b, batch_err, batch_time, load_time))
+    batch_stats.append((b, batch_err, batch_time, timer.value))
 
   test_err = Test(batch_size, test_images, net, val_fn)
   return batch_stats, validation_stats, test_err, net

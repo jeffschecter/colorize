@@ -87,7 +87,7 @@ def Minibatches(images, batch_size):
 
 
 def Test(batch_size, test_images, net, val_fn):
-  print "Testing!..."
+  print "\nTesting..."
   test_errs = []
   iterator = Minibatches(test_images, batch_size)
   mark = time.time()
@@ -96,8 +96,8 @@ def Test(batch_size, test_images, net, val_fn):
     test_errs.append(err)
   test_time = time.time() - mark
   test_err = np.mean(test_errs)
-  print ("Testing completed in {t:.2f} seconds. "
-         "Test error = {e:.4f}.").format(t=test_time, e=test_err)
+  print ("Tested on {s} images in {t:.2f} seconds. Error = {e:.4f}.").format(
+      s=len(test_images), t=test_time, e=test_err)
   return test_err
 
 
@@ -107,15 +107,23 @@ def Train(num_batches, validate_every_n_batches, height, width, batch_size,
   # This works with any network and training regimen where the input and
   # targets are both functions of the same color source image.
 
+  # Check args
+  if val_set_size % batch_size != 0 or test_set_size % batch_size != 0:
+    raise ValueError(
+      "Validation and Test set sizes must be whole-number multiples "
+      "of batch size.")
+
   # Split image handles in train, test, and validation sets
   print "Loading validation and testing images..."
   val_images, test_images, train_handles = ValidationTestTrainSplit(
     image_handles, val_set_size, test_set_size, height, width)
 
   # Memory space to shared with image loader running in background process
-  timer = multiprocessing.Value('d', 0.0)
+  image_load_timer = multiprocessing.Value('d', 0.0)
   shared_memory = SharedArray((batch_size, height, width, 3), ctypes.c_uint8)
-  LoadImages(train_handles, height, width, batch_size, shared_memory)
+  LoadImages(
+      train_handles, height, width, batch_size, shared_memory,
+      timer=image_load_timer)
 
   # Record keeping
   batch_stats = []
@@ -130,18 +138,20 @@ def Train(num_batches, validate_every_n_batches, height, width, batch_size,
            "Last time = {t:.2f} seconds. "
            "Last load time = {l:.2f} seconds. "
            "Last error = {e:.5f}.").format(
-              b=b, s=batch_size, t=batch_time, l=timer.value, e=batch_err)
+              b=b, s=batch_size, t=batch_time,
+              l=image_load_timer.value, e=batch_err)
     images = np.array(shared_memory)
     mark = time.time()
     image_loader_process = multiprocessing.Process(
         target=LoadImages,
         args=[train_handles, height, width, batch_size, shared_memory],
-        kwargs={"timer": timer})
+        kwargs={"timer": image_load_timer})
     image_loader_process.start()
     batch_err = train_fn(images).mean()
     batch_time = time.time() - mark
 
     # Validation
+    # TODO merge with testing logic, since it's basically identical
     if (b + 1) % validate_every_n_batches == 0:
       print "\nValidating..."
       val_errs = []
@@ -158,7 +168,7 @@ def Train(num_batches, validate_every_n_batches, height, width, batch_size,
 
     # So we know the next batch of training images is ready
     image_loader_process.join()
-    batch_stats.append((b, batch_err, batch_time, timer.value))
+    batch_stats.append((b, batch_err, batch_time, image_load_timer.value))
 
   test_err = Test(batch_size, test_images, net, val_fn)
   return batch_stats, validation_stats, test_err, net

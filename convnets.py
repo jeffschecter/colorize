@@ -1,37 +1,55 @@
 #!/bin/python
 
+import numpy as np
+
 import lasagne
 import theano
 import theano.tensor as T
 
 
-LUM_MEAN = 138.17
-LUM_STD = 66.55
+PX_LUM_MEAN = 138.17
+PX_LUM_STD = 66.55
 
 
 # --------------------------------------------------------------------------- #
 # Utils.                                                                      #
 # --------------------------------------------------------------------------- #
 
+class BaseNet(object):
+
+  def __init__(self, builder, transform):
+    self.builder = builder
+    self.transform = transform
+
+
 def ScaledSigmoid(beta):
   def Sig(x):
     return beta * T.nnet.sigmoid(x)
   return Sig
 
+def ScaledTanh(beta):
+  def Tanh(x):
+    return beta * T.tanh(x)
+  return Tanh
 
-def CreateTheanoExprs(builder, target_transform, height, width, learning_rate):
+
+def Grayscale(image):
+  return ((image[:, :, :, 0] * 0.299 +
+           image[:, :, :, 1] * 0.587 +
+           image[:, :, :, 2] * 0.114) - PX_LUM_MEAN) / PX_LUM_STD
+
+
+def CreateTheanoExprs(base_net, height, width, learning_rate):
   # Our target_var contains raw target images.
   target_var = T.tensor4("targets")
-  target_ratios = target_transform(target_var)
+  target_ratios = base_net.transform(target_var)
 
   # Inputs are greyscale images, which we can compute from the target full
   # color images.
-  input_var = ((target_var[:, :, :, 0] * 0.299 +
-                target_var[:, :, :, 1] * 0.587 +
-                target_var[:, :, :, 2] * 0.114) - LUM_MEAN) / LUM_STD
+  input_var = Grayscale(target_var)
   
   # Build network.
-  net = builder(input_var, height, width)
+  net = base_net.builder(input_var, height, width)
 
   # Loss expression.
   # Since we don't have stochastic dropout, we can use the same loss
@@ -130,10 +148,9 @@ def BuildLuminosityRatioNet(input_var, height, width):
   return l_outshuf
 
 
-LUMINOSITY_RATIO_NET = {
-  "transform": lambda t: t / (t.mean(axis=3, keepdims=True) + 1),
-  "builder": BuildLuminosityRatioNet
-}
+LUMINOSITY_RATIO_NET = BaseNet(
+  BuildLuminosityRatioNet,
+  lambda t: t / (t.mean(axis=3, keepdims=True) + 1))
 
 
 # --------------------------------------------------------------------------- #
@@ -142,10 +159,20 @@ LUMINOSITY_RATIO_NET = {
 # source image.                                                               #
 # --------------------------------------------------------------------------- #
 
-def ColorStatsForImages(ims):
-  # erp
-  pass
+# All in RGB order
+IM_MEAN_COLOR_MEANS = np.array([133.07, 139.37, 153.86])
+IM_MEAN_COLOR_STDS = np.array([39.012, 37.22, 43.59])
+IM_STD_COLOR_MEANS = np.array([55.46, 54.28, 55.18])
+IM_STD_COLOR_STDS = np.array([16.85, 16.22, 18.63])
 
+
+def ColorStatsForImages(ims):
+  # Input ims is a 4d stack of 3-channel images.
+  # Output should be a 2d stack with one vector of length 6 per input image.
+  chan = ims.reshape((ims.shape[0], ims.shape[1] * ims.shape[2], ims.shape[3]))
+  ch_mean = (chan.mean(axis=1) - IM_MEAN_COLOR_MEANS) / IM_MEAN_COLOR_STDS
+  ch_std = (chan.std(axis=1) - IM_STD_COLOR_MEANS) / IM_STD_COLOR_STDS
+  return T.concatenate([ch_mean, ch_std], axis=1)
 
 
 def BuildColorStatsNet(input_var, height, width):
@@ -164,7 +191,7 @@ def BuildColorStatsNet(input_var, height, width):
       l_inshuf,
       num_filters=12,
       filter_size=(5, 5),
-      nonlinearity=lasagne.nonlinearities.rectify,
+      nonlinearity=lasagne.nonlinearities.leaky_rectify,
       W=lasagne.init.GlorotUniform())
   l_pool1 = lasagne.layers.MaxPool2DLayer(
       l_conv1,
@@ -173,7 +200,7 @@ def BuildColorStatsNet(input_var, height, width):
       l_pool1,
       num_filters=5,
       filter_size=(3, 3),
-      nonlinearity=lasagne.nonlinearities.rectify,
+      nonlinearity=lasagne.nonlinearities.leaky_rectify,
       W=lasagne.init.GlorotUniform())
   l_pool2 = lasagne.layers.MaxPool2DLayer(
       l_conv2,
@@ -183,18 +210,15 @@ def BuildColorStatsNet(input_var, height, width):
   l_hidden = lasagne.layers.DenseLayer(
       l_pool2,
       num_units=100,
-      nonlinearity=lasagne.nonlinearities.rectify,
+      nonlinearity=lasagne.nonlinearities.leaky_rectify,
       W=lasagne.init.GlorotUniform())
 
   # Output is a vector of length 6 for each image in the batch.
   l_out = lasagne.layers.DenseLayer(
       l_hidden,
       num_units=6,
-      nonlinearity=ScaledSigmoid(255))
+      nonlinearity=ScaledTanh(3))
   return l_out
 
 
-COLOR_STATS_NET = {
-  "transform": ColorStatsForImages,
-  "builder": BuildColorStatsNet
-}
+COLOR_STATS_NET = BaseNet(BuildColorStatsNet, ColorStatsForImages)

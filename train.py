@@ -173,7 +173,6 @@ def Train(num_batches, validate_every_n_batches,
               b=b, r=reps_per_batch, s=batch_size, t=batch_time,
               l=image_load_timer.value, e=batch_err)
     images = np.array(shared_memory)
-    print images.mean()
     stacked = np.repeat(images, reps_per_batch, 0)
     np.random.shuffle(train_handles)
     mark = time.time()

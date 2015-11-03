@@ -33,6 +33,7 @@ def main(*net_names):
         height=SIZE,
         width=SIZE,
         batch_size=10,
+        reps_per_batch=2,
         image_handles=handles,
         val_set_size=20,
         test_set_size=30,

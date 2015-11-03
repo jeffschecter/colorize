@@ -104,7 +104,8 @@ def Test(batch_size, test_images, net, val_fn):
   return test_err
 
 
-def Train(num_batches, validate_every_n_batches, height, width, batch_size,
+def Train(num_batches, validate_every_n_batches,
+          height, width, batch_size, reps_per_batch,
           image_handles, val_set_size, test_set_size,
           net, train_fn, val_fn):
   # This works with any network and training regimen where the input and
@@ -134,16 +135,20 @@ def Train(num_batches, validate_every_n_batches, height, width, batch_size,
   batch_err = 1
   batch_time = 0
 
-  # Iterate through training batches
+  # Iterate through training batches.
+  # When using the GPU, loading images from disk to RAM is a hell of a lot
+  # slower than training the net on an image. To compensate, we repeat each
+  # batch to be several copies of itself
   print "Starting training..."
   for b in xrange(num_batches):
-    print ("Training batch {b} of {s} images. "
+    print ("Training batch {b} of {r} x {s} images. "
            "Last time = {t:.2f} seconds. "
            "Last load time = {l:.2f} seconds. "
            "Last error = {e:.5f}.").format(
-              b=b, s=batch_size, t=batch_time,
+              b=b, r=reps_per_batch, s=batch_size, t=batch_time,
               l=image_load_timer.value, e=batch_err)
     images = np.array(shared_memory)
+    stacked = np.repeat(images, reps_per_batch, 0)
     mark = time.time()
     image_loader_process = multiprocessing.Process(
         target=LoadImages,

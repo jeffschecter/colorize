@@ -1,4 +1,5 @@
 images
 urls
 *.pyc
+*.npz
 .ipynb_checkpoints

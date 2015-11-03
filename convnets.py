@@ -17,9 +17,10 @@ PX_LUM_STD = 66.55
 
 class BaseNet(object):
 
-  def __init__(self, builder, transform):
+  def __init__(self, builder, transform, train_args={}):
     self.builder = builder
     self.transform = transform
+    self.train_args = train_args
 
 
 def ScaledSigmoid(beta):
@@ -224,4 +225,9 @@ def BuildColorStatsNet(input_var, height, width):
   return l_out
 
 
-COLOR_STATS_NET = BaseNet(BuildColorStatsNet, ColorStatsForImages)
+COLOR_STATS_NET = BaseNet(
+    BuildColorStatsNet,
+    ColorStatsForImages,
+    train_args={
+      
+    })

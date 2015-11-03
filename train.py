@@ -2,6 +2,8 @@
 
 import ctypes
 import multiprocessing
+import os
+import sys
 import time
 
 import numpy as np
@@ -10,6 +12,7 @@ from scipy import misc
 import theano
 from theano import tensor as T
 
+import convnets
 import image
 
 
@@ -78,6 +81,31 @@ def ValidationTestTrainSplit(handles, val_set_size, test_set_size,
   train_handles = handles[offset:]
 
   return val_images, test_images, train_handles
+
+
+# --------------------------------------------------------------------------- #
+# Model inspection.                                                           #
+# --------------------------------------------------------------------------- #
+
+def Evaluator(prediction_var, target_var, transformed_target):
+  predictor = theano.function(
+    [target_var],
+    [prediction_var, transformed_target])
+
+  def Evaluate(image_or_images):
+    shp = image_or_images.shape
+    if len(shp) == 3:
+      h, w, ch = shp
+      images = image_or_images.reshape((1, h, w, ch))
+    else:
+      images = image_or_images
+    return predictor(images)
+
+  return Evaluate
+
+  
+def Save(net, path):
+  np.savez(path, *lasagne.layers.get_all_param_values(net))
 
 
 # --------------------------------------------------------------------------- #
@@ -182,19 +210,40 @@ def Train(num_batches, validate_every_n_batches,
   return batch_stats, validation_stats, test_err, net
 
 
-def Evaluator(prediction_var, target_var, transformed_target):
-  predictor = theano.function(
-    [target_var],
-    [prediction_var, transformed_target])
+# --------------------------------------------------------------------------- #
+# Main loop.                                                                  #
+# --------------------------------------------------------------------------- #
 
-  def Evaluate(image_or_images):
-    shp = image_or_images.shape
-    if len(shp) == 3:
-      h, w, ch = shp
-      images = image_or_images.reshape((1, h, w, ch))
-    else:
-      images = image_or_images
-    return predictor(images)
+IMDIR = "images/raw"
 
-  return Evaluate
-  
+
+def main(net_name, save_path):
+  base_net = getattr(convnets, net_name)
+  arg = lambda arg, default: base_net.train_args.get(arg, default)
+  theano_exprs = convnets.CreateTheanoExprs(
+      base_net=base_net,
+      height=arg("size", 100),
+      width=arg("size", 100),
+      learning_rate=arg("learning_rate", 0.001))
+  net, train_fn, val_fn = theano_exprs[:3]
+  handles = [os.path.join(IMDIR, h) for h in os.listdir(IMDIR)]
+  batch_stats, val_stats, err, net = Train(
+      num_batches=arg("num_batches", 100),
+      validate_every_n_batches=arg("validate_every_n_batches", 5),
+      height=arg("size", 100),
+      width=arg("size", 100),
+      batch_size=arg("batch_size", 100),
+      reps_per_batch=arg("reps_per_batch", 6),
+      image_handles=handles,
+      val_set_size=arg("batch_size", 100) * arg("reps_per_batch", 6) * 3,
+      test_set_size=arg("batch_size", 100) * arg("reps_per_batch", 6) * 3,
+      net=net,
+      train_fn=train_fn,
+      val_fn=val_fn)
+  Save(net, os.path.join(save_path, "{n}-{t}.npz".format(
+      n=net_name, t=int(time.time))))
+
+
+
+if __name__ == "__main__":
+  main(*sys.argv[1:])

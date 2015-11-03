@@ -4,7 +4,7 @@ import numpy as np
 
 import lasagne
 import theano
-import theano.tensor as T
+from theano import tensor as T
 
 
 PX_LUM_MEAN = 138.17
@@ -42,7 +42,7 @@ def Grayscale(image):
 def CreateTheanoExprs(base_net, height, width, learning_rate):
   # Our target_var contains raw target images.
   target_var = T.tensor4("targets")
-  target_ratios = base_net.transform(target_var)
+  transformed_target = base_net.transform(target_var)
 
   # Inputs are greyscale images, which we can compute from the target full
   # color images.
@@ -57,7 +57,8 @@ def CreateTheanoExprs(base_net, height, width, learning_rate):
   # then we need a separate loss expression for validation where stochastic
   # elements are explicitly frozen & dropout is disabled.
   prediction = lasagne.layers.get_output(net)
-  loss = lasagne.objectives.squared_error(prediction, target_ratios).mean()
+  loss = lasagne.objectives.squared_error(
+      prediction, transformed_target).mean()
 
   # Weight updates during training.
   params = lasagne.layers.get_all_params(net, trainable=True)
@@ -79,7 +80,7 @@ def CreateTheanoExprs(base_net, height, width, learning_rate):
       [prediction, loss],
       name="Evaluate")
   
-  return net, train_fn, val_fn
+  return net, train_fn, val_fn, prediction, target_var, transformed_target
 
 
 def PrintNetworkShape(net):

@@ -21,8 +21,10 @@ def main(*net_names):
   for net_name in net_names:
     print "\nTesting network named {n}".format(n=net_name)
     print "\nBuilding network..."
-    base = getattr(convnets, net_name)
-    net, train_fn, val_fn = convnets.CreateTheanoExprs(base, SIZE, SIZE, 0.01)
+    base_net = getattr(convnets, net_name)
+    theano_exprs = convnets.CreateTheanoExprs(
+        base_net, SIZE, SIZE, 0.01)
+    net, train_fn, val_fn = theano_exprs[:3]
     convnets.PrintNetworkShape(net)
     print "\nStarting Train / Validate / Test procedure..."
     batch_stats, val_stats, err, net  = train.Train(

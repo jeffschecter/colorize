@@ -7,6 +7,9 @@ import time
 import numpy as np
 from scipy import misc
 
+import theano
+from theano import tensor as T
+
 import image
 
 
@@ -172,4 +175,21 @@ def Train(num_batches, validate_every_n_batches, height, width, batch_size,
 
   test_err = Test(batch_size, test_images, net, val_fn)
   return batch_stats, validation_stats, test_err, net
+
+
+def Evaluator(prediction_var, target_var, transformed_target):
+  predictor = theano.function(
+    [target_var],
+    [prediction_var, transformed_target])
+
+  def Evaluate(image_or_images):
+    shp = image_or_images.shape
+    if len(shp) == 3:
+      h, w, ch = shp
+      images = image_or_images.reshape((1, h, w, ch))
+    else:
+      images = image_or_images
+    return predictor(images)
+
+  return Evaluate
   

@@ -70,7 +70,8 @@ def CreateTheanoExprs(base_net, height, width, learning_rate):
       [target_var],
       loss,
       updates=updates,
-      name="Train")
+      name="Train",
+      allow_input_downcast=True)
 
   # Theano function to evaluate / validate on an input.
   # The difference between this and the training function is that the
@@ -78,7 +79,8 @@ def CreateTheanoExprs(base_net, height, width, learning_rate):
   val_fn = theano.function(
       [target_var],
       [prediction, loss],
-      name="Evaluate")
+      name="Evaluate",
+      allow_input_downcast=True)
   
   return net, train_fn, val_fn, prediction, target_var, transformed_target
 

@@ -233,8 +233,8 @@ def main(net_name, save_path):
       batch_size=arg("batch_size", 100),
       reps_per_batch=arg("reps_per_batch", 6),
       image_handles=handles,
-      val_set_size=arg("batch_size", 100) * arg("reps_per_batch", 6),
-      test_set_size=arg("batch_size", 100) * arg("reps_per_batch", 6),
+      val_set_size=arg("val_set_size", 1000),
+      test_set_size=arg("test_set_size", 1000),
       net=net,
       train_fn=train_fn,
       val_fn=val_fn)

@@ -41,7 +41,7 @@ def Grayscale(image):
 
 def CreateTheanoExprs(base_net, height, width, learning_rate):
   # Our target_var contains raw target images.
-  target_var = T.tensor4("targets")
+  target_var = T.tensor4("targets", dtype=theano.config.floatX)
   transformed_target = base_net.transform(target_var)
 
   # Inputs are greyscale images, which we can compute from the target full

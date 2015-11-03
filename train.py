@@ -239,8 +239,10 @@ def main(net_name, save_path):
       net=net,
       train_fn=train_fn,
       val_fn=val_fn)
-  Save(net, os.path.join(save_path, "{n}-{t}.npz".format(
+  outpath = os.path.join(save_path, "{n}-{t}.npz".format(
       n=net_name, t=int(time.time()))))
+  print "Saving model to {o}".format(o=outpath)
+  Save(net, outpath)
 
 
 if __name__ == "__main__":

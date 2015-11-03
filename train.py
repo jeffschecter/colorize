@@ -9,6 +9,7 @@ import time
 import numpy as np
 from scipy import misc
 
+import lasagne
 import theano
 from theano import tensor as T
 
@@ -166,7 +167,7 @@ def Train(num_batches, validate_every_n_batches,
   # batch to be several copies of itself
   print "Starting training..."
   for b in xrange(num_batches):
-    print ("Training batch {b} of {r} x {s} images. "
+    print ("Training batch {b} of {r} reps of {s} images. "
            "Last time = {t:.2f} seconds. "
            "Last load time = {l:.2f} seconds. "
            "Last error = {e:.5f}.").format(

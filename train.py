@@ -240,7 +240,7 @@ def main(net_name, save_path):
       train_fn=train_fn,
       val_fn=val_fn)
   outpath = os.path.join(save_path, "{n}-{t}.npz".format(
-      n=net_name, t=int(time.time()))))
+      n=net_name, t=int(time.time())))
   print "Saving model to {o}".format(o=outpath)
   Save(net, outpath)
 

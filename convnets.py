@@ -229,5 +229,6 @@ COLOR_STATS_NET = BaseNet(
     BuildColorStatsNet,
     ColorStatsForImages,
     train_args={
-      "reps_per_batch": 35
+      "batch_size": 1000,
+      "reps_per_batch": 10
     })

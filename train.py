@@ -36,15 +36,14 @@ def SharedArray(shape, ctype):
   return np.ctypeslib.as_array(shared_array_base.get_obj()).reshape(shape)
 
 
-def LoadImages(handles, height, width, batch_size, shared_images,
-               random=True, timer=None):
+def LoadImages(handles, height, width, batch_size, shared_images, timer=None):
   processed = 0
   loaded = 0
   imsize = height * width * 3
   num_handles = len(handles)
   mark = time.time()
   while loaded < batch_size:
-    ix = np.random.randint(0, num_handles) if random else processed
+    ix = processed
     processed += 1
     try:
       im = misc.imread(handles[ix])
@@ -68,14 +67,12 @@ def ValidationTestTrainSplit(handles, val_set_size, test_set_size,
   # Validation
   val_images = np.zeros((val_set_size, height, width, 3))
   offset = LoadImages(
-      handles, height, width, val_set_size, val_images,
-      random=False)
+      handles, height, width, val_set_size, val_images)
 
   # Testing
   test_images = np.zeros((test_set_size, height, width, 3))
   offset += LoadImages(
-      handles[offset:], height, width, test_set_size, test_images,
-      random=False)
+      handles[offset:], height, width, test_set_size, test_images)
 
   # Training
   train_handles = handles[offset:]
@@ -176,7 +173,9 @@ def Train(num_batches, validate_every_n_batches,
               b=b, r=reps_per_batch, s=batch_size, t=batch_time,
               l=image_load_timer.value, e=batch_err)
     images = np.array(shared_memory)
+    print images.mean()
     stacked = np.repeat(images, reps_per_batch, 0)
+    np.random.shuffle(train_handles)
     mark = time.time()
     image_loader_process = multiprocessing.Process(
         target=LoadImages,
@@ -235,8 +234,8 @@ def main(net_name, save_path):
       batch_size=arg("batch_size", 100),
       reps_per_batch=arg("reps_per_batch", 6),
       image_handles=handles,
-      val_set_size=arg("batch_size", 100) * arg("reps_per_batch", 6) * 3,
-      test_set_size=arg("batch_size", 100) * arg("reps_per_batch", 6) * 3,
+      val_set_size=arg("batch_size", 100) * arg("reps_per_batch", 6),
+      test_set_size=arg("batch_size", 100) * arg("reps_per_batch", 6),
       net=net,
       train_fn=train_fn,
       val_fn=val_fn)

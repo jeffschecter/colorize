@@ -1,8 +1,6 @@
 #!/bin/bash
 
-# http://markus.com/install-theano-on-aws/
-# has Theano and CUDA pre-installed I think?
-AMI="ami-b141a2f5"
+AMI="ami-e60d6286"
 TYPE="g2.2xlarge"
 
 aws ec2 run-instances \

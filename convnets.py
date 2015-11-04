@@ -266,7 +266,7 @@ def BuildDeepColorStatsNet(input_var, height, width):
       l_pool2,
       num_filters=6,
       filter_size=(3, 3),
-      nonlinearity=lasagne.nonlinearity.leaky_rectify,
+      nonlinearity=lasagne.nonlinearities.leaky_rectify,
       W=lasagne.init.GlorotUniform())
   l_pool3 = lasagne.layers.MaxPool2DLayer(
       l_conv3,
@@ -275,7 +275,7 @@ def BuildDeepColorStatsNet(input_var, height, width):
       l_pool3,
       num_filters=6,
       filter_size=(3, 3),
-      nonlinearity=lasagne.nonlinearity.leaky_rectify,
+      nonlinearity=lasagne.nonlinearities.leaky_rectify,
       W=lasagne.init.GlorotUniform())
   l_pool4 = lasagne.layers.MaxPool2DLayer(
       l_conv4,

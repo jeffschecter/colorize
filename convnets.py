@@ -185,11 +185,11 @@ def BuildColorStatsNet(input_var, height, width):
       shape=(None, height, width),
       input_var=input_var)
 
-  # Shuffle them into 1-channel images. 
+  # Shuffle them into 1-channel images.
   l_inshuf = lasagne.layers.DimshuffleLayer(
       l_in,
       (0, 'x', 1, 2))
-  
+
   # Apply several convolutional layers and max pooling layers.
   l_conv1 = lasagne.layers.Conv2DLayer(
       l_inshuf,
@@ -209,7 +209,7 @@ def BuildColorStatsNet(input_var, height, width):
   l_pool2 = lasagne.layers.MaxPool2DLayer(
       l_conv2,
       pool_size=(2, 2))
-  
+
   # Fully connected hidden layer.
   l_hidden = lasagne.layers.DenseLayer(
       l_pool2,
@@ -226,3 +226,74 @@ def BuildColorStatsNet(input_var, height, width):
 
 
 COLOR_STATS_NET = BaseNet(BuildColorStatsNet, ColorStatsForImages)
+
+
+# --------------------------------------------------------------------------- #
+# As above, but deeeeperrrr.                                                  #
+# --------------------------------------------------------------------------- #
+
+def BuildDeepColorStatsNet(input_var, height, width):
+  # Inputs are greyscale images.
+  l_in = lasagne.layers.InputLayer(
+      shape=(None, height, width),
+      input_var=input_var)
+
+  # Shuffle them into 1-channel images.
+  l_inshuf = lasagne.layers.DimshuffleLayer(
+      l_in,
+      (0, 'x', 1, 2))
+
+  # Apply several convolutional layers and max pooling layers.
+  l_conv1 = lasagne.layers.Conv2DLayer(
+      l_inshuf,
+      num_filters=24,
+      filter_size=(5, 5),
+      nonlinearity=lasagne.nonlinearities.leaky_rectify,
+      W=lasagne.init.GlorotUniform())
+  l_pool1 = lasagne.layers.MaxPool2DLayer(
+      l_conv1,
+      pool_size=(2, 2))
+  l_conv2 = lasagne.layers.Conv2DLayer(
+      l_pool1,
+      num_filters=12,
+      filter_size=(5, 5),
+      nonlinearity=lasagne.nonlinearities.leaky_rectify,
+      W=lasagne.init.GlorotUniform())
+  l_pool2 = lasagne.layers.MaxPool2DLayer(
+      l_conv2,
+      pool_size=(2, 2))
+  l_conv3 = lasagne.layers.Conv2DLayer(
+      l_pool2,
+      num_filters=6,
+      filter_size=(3, 3),
+      nonlinearity=lasagne.nonlinearity.leaky_rectify,
+      W=lasagne.init.GlorotUniform())
+  l_pool3 = lasagne.layers.MaxPool2DLayer(
+      l_conv3,
+      pool_size=(2, 2))
+  l_conv4 = lasagne.layers.Conv2DLayer(
+      l_pool3,
+      num_filters=6,
+      filter_size=(3, 3),
+      nonlinearity=lasagne.nonlinearity.leaky_rectify,
+      W=lasagne.init.GlorotUniform())
+  l_pool4 = lasagne.layers.MaxPool2DLayer(
+      l_conv4,
+      pool_size=(2, 2))
+
+  # Fully connected hidden layer.
+  l_hidden = lasagne.layers.DenseLayer(
+      l_pool4,
+      num_units=100,
+      nonlinearity=lasagne.nonlinearities.leaky_rectify,
+      W=lasagne.init.GlorotUniform())
+
+  # Output is a vector of length 6 for each image in the batch.
+  l_out = lasagne.layers.DenseLayer(
+      l_hidden,
+      num_units=6,
+      nonlinearity=ScaledTanh(3))
+  return l_out
+
+
+DEEP_COLOR_STATS_NET = BaseNet(BuildDeepColorStatsNet, ColorStatsForImages)

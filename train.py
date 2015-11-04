@@ -167,10 +167,10 @@ def Train(num_batches, validate_every_n_batches,
   # batch to be several copies of itself.
   print "Starting training..."
   for b in xrange(num_batches):
-    print ("Training batch {b} of {r} reps of {s} images. "
-           "Last time = {t:.2f} seconds. "
-           "Last load time = {l:.2f} seconds. "
-           "Last error = {e:.5f}.").format(
+    print ("Training batch {b} of {r} reps x {s} images. "
+           "Time = {t:.2f} seconds. "
+           "Load time = {l:.2f} seconds. "
+           "Error = {e:.5f}.").format(
               b=b, r=reps_per_batch, s=batch_size, t=batch_time,
               l=image_load_timer.value, e=batch_err)
     images = np.array(shared_memory)

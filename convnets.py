@@ -225,13 +225,4 @@ def BuildColorStatsNet(input_var, height, width):
   return l_out
 
 
-COLOR_STATS_NET = BaseNet(
-    BuildColorStatsNet,
-    ColorStatsForImages,
-    train_args={
-      "batch_size": 400,
-      "reps_per_batch": 175,
-      "val_set_size": 1200,
-      "test_set_size": 1200,
-      "num_batches": 10000
-    })
+COLOR_STATS_NET = BaseNet(BuildColorStatsNet, ColorStatsForImages)

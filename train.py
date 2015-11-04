@@ -164,7 +164,7 @@ def Train(num_batches, validate_every_n_batches,
   # Iterate through training batches.
   # When using the GPU, loading images from disk to RAM is a hell of a lot
   # slower than training the net on an image. To compensate, we repeat each
-  # batch to be several copies of itself
+  # batch to be several copies of itself.
   print "Starting training..."
   for b in xrange(num_batches):
     print ("Training batch {b} of {r} reps of {s} images. "
@@ -182,7 +182,7 @@ def Train(num_batches, validate_every_n_batches,
         args=[train_handles, height, width, batch_size, shared_memory],
         kwargs={"timer": image_load_timer})
     image_loader_process.start()
-    batch_err = train_fn(images).mean()
+    batch_err = train_fn(stacked).mean()
     batch_time = time.time() - mark
 
     # Validation
@@ -216,33 +216,41 @@ def Train(num_batches, validate_every_n_batches,
 IMDIR = "images/raw"
 
 
-def main(net_name, save_path):
+def main(net_name, save_path, arg_str=""):
+  arg_kvs = [kv.split("=") for kv in arg_str.split(",") if "=" in kv]
+  arg_dict = dict((k, int(v)) for k, v in arg_kvs)
+  start_time = int(time.time())
+  print "Building net..."
   base_net = getattr(convnets, net_name)
-  arg = lambda arg, default: base_net.train_args.get(arg, default)
+  net_args = base_net.train_args
+  arg = lambda arg, default: arg_dict.get(arg) or net_args.get(arg, default)
   theano_exprs = convnets.CreateTheanoExprs(
       base_net=base_net,
-      height=arg("size", 100),
-      width=arg("size", 100),
+      height=arg("size", 128),
+      width=arg("size", 128),
       learning_rate=arg("learning_rate", 0.001))
   net, train_fn, val_fn = theano_exprs[:3]
+  convnets.PrintNetworkShape(net)
   handles = [os.path.join(IMDIR, h) for h in os.listdir(IMDIR)]
-  batch_stats, val_stats, err, net = Train(
-      num_batches=arg("num_batches", 100),
-      validate_every_n_batches=arg("validate_every_n_batches", 5),
-      height=arg("size", 100),
-      width=arg("size", 100),
-      batch_size=arg("batch_size", 100),
-      reps_per_batch=arg("reps_per_batch", 6),
-      image_handles=handles,
-      val_set_size=arg("val_set_size", 1000),
-      test_set_size=arg("test_set_size", 1000),
-      net=net,
-      train_fn=train_fn,
-      val_fn=val_fn)
-  outpath = os.path.join(save_path, "{n}-{t}.npz".format(
-      n=net_name, t=int(time.time())))
-  print "Saving model to {o}".format(o=outpath)
-  Save(net, outpath)
+  try:
+    batch_stats, val_stats, err, net = Train(
+        num_batches=arg("num_batches", 100),
+        validate_every_n_batches=arg("validate_every_n_batches", 5),
+        height=arg("size", 128),
+        width=arg("size", 128),
+        batch_size=arg("batch_size", 100),
+        reps_per_batch=arg("reps_per_batch", 1),
+        image_handles=handles,
+        val_set_size=arg("val_set_size", 1000),
+        test_set_size=arg("test_set_size", 1000),
+        net=net,
+        train_fn=train_fn,
+        val_fn=val_fn)
+  finally:
+    outpath = os.path.join(save_path, "{n}-{t}.npz".format(
+        n=net_name, t=start_time))
+    print "\n\nSaving model to {o}\n\n".format(o=outpath)
+    Save(net, outpath)
 
 
 if __name__ == "__main__":

@@ -97,6 +97,40 @@ def PrintNetworkShape(net):
 
 
 # --------------------------------------------------------------------------- #
+# Model inspection.                                                           #
+# --------------------------------------------------------------------------- #
+
+def Evaluator(prediction_var, target_var, transformed_target):
+  predictor = theano.function(
+    [target_var],
+    [prediction_var, transformed_target])
+
+  def Evaluate(image_or_images):
+    shp = image_or_images.shape
+    if len(shp) == 3:
+      h, w, ch = shp
+      images = image_or_images.reshape((1, h, w, ch))
+    else:
+      images = image_or_images
+    return predictor(images)
+
+  return Evaluate
+
+  
+def SaveNet(net, path):
+  np.savez(path, *lasagne.layers.get_all_param_values(net))
+
+
+def LoadSavedNet(base_net, height, width, npz_path, learning_rate=0.01):
+  theano_exprs = CreateTheanoExprs(
+      base_net, height, width, learning_rate)
+  net = theano_exprs[0]
+  with np.load(npz_path) as f:
+    param_values = [f['arr_%d' % i] for i in xrange(len(f.files))]
+  lasagne.layers.set_all_param_values(net, param_values)
+  return theano_exprs
+
+# --------------------------------------------------------------------------- #
 # Takes a greyscale image. Learns to guess for each pixel the ratio of the    #
 # brightness of each color channel to the luminosity of the greyscale pixel.  #
 # --------------------------------------------------------------------------- #

@@ -82,31 +82,6 @@ def ValidationTestTrainSplit(handles, val_set_size, test_set_size,
 
 
 # --------------------------------------------------------------------------- #
-# Model inspection.                                                           #
-# --------------------------------------------------------------------------- #
-
-def Evaluator(prediction_var, target_var, transformed_target):
-  predictor = theano.function(
-    [target_var],
-    [prediction_var, transformed_target])
-
-  def Evaluate(image_or_images):
-    shp = image_or_images.shape
-    if len(shp) == 3:
-      h, w, ch = shp
-      images = image_or_images.reshape((1, h, w, ch))
-    else:
-      images = image_or_images
-    return predictor(images)
-
-  return Evaluate
-
-  
-def Save(net, path):
-  np.savez(path, *lasagne.layers.get_all_param_values(net))
-
-
-# --------------------------------------------------------------------------- #
 # Training & testing utilities.                                               #
 # --------------------------------------------------------------------------- #
 
@@ -250,7 +225,8 @@ def main(net_name, save_path, arg_str=""):
     outpath = os.path.join(save_path, "{n}-{t}.npz".format(
         n=net_name, t=start_time))
     print "\n\nSaving model to {o}\n\n".format(o=outpath)
-    Save(net, outpath)
+    convnets.SaveNet(net, outpath)
+  return batch_stats, val_stats, err, net, theano_exprs
 
 
 if __name__ == "__main__":

@@ -52,14 +52,14 @@ def CreateTheanoExprs(base_net, height, width, learning_rate):
   # Build network.
   net = base_net.builder(input_var, height, width)
 
-  # Loss expression.
-  # Since we don't have stochastic dropout, we can use the same loss
-  # expr for training and validation. If we want to add a dropout layer,
-  # then we need a separate loss expression for validation where stochastic
-  # elements are explicitly frozen & dropout is disabled.
+  # Loss expressions.
   prediction = lasagne.layers.get_output(net)
   loss = lasagne.objectives.squared_error(
       prediction, transformed_target).mean()
+
+  test_prediction = lasagne.layers.get_output(net, deterministic=True)
+  test_loss = lasagne.objectives.squared_error(
+      test_prediction, transformed_target).mean()
 
   # Weight updates during training.
   params = lasagne.layers.get_all_params(net, trainable=True)
@@ -76,10 +76,11 @@ def CreateTheanoExprs(base_net, height, width, learning_rate):
 
   # Theano function to evaluate / validate on an input.
   # The difference between this and the training function is that the
-  # test / validation function does not apply weight updates.
+  # test / validation function does not apply weight updates, and any dropout
+  # or other stochastic elements are frozen.
   val_fn = theano.function(
       [target_var],
-      [prediction, loss],
+      [test_prediction, test_loss],
       name="Evaluate",
       allow_input_downcast=True)
   
@@ -144,7 +145,7 @@ def BuildLuminosityRatioNet(input_var, height, width):
   # Shuffle them into 1-channel images. 
   l_inshuf = lasagne.layers.DimshuffleLayer(
       l_in,
-      (0, 'x', 1, 2))
+      (0, "x", 1, 2))
   
   # Apply several convolutional layers, padding at each step to
   # maintain original image size. We first use a large number
@@ -187,8 +188,79 @@ def BuildLuminosityRatioNet(input_var, height, width):
 
 
 LUMINOSITY_RATIO_NET = BaseNet(
-  BuildLuminosityRatioNet,
-  lambda t: t / (t.mean(axis=3, keepdims=True) + 1))
+    BuildLuminosityRatioNet,
+    lambda t: t / (t.mean(axis=3, keepdims=True) + 1))
+
+
+# --------------------------------------------------------------------------- #
+# Takes a greyscale image. Learns to guess for each pixel the value of each   #
+# color channel in the original color source image.                           #
+# --------------------------------------------------------------------------- #
+
+def BuildColorizerNet(input_var, height, width):
+  # Inputs are greyscale images.
+  l_in = lasagne.layers.InputLayer(
+      shape=(None, height, width),
+      input_var=input_var)
+
+  # Shuffle them into 1-channel images. 
+  l_inshuf = lasagne.layers.DimshuffleLayer(
+      l_in,
+      (0, "x", 1, 2))
+  
+  # Apply several convolutional layers. Start with a large number of kernels
+  # with a broad receptive field. Gradually narrow down the number of chanels.
+  l_conv1 = lasagne.layers.Conv2DLayer(
+      l_inshuf,
+      num_filters=24,
+      filter_size=(7, 7),
+      pad="same",
+      nonlinearity=lasagne.nonlinearities.rectify,
+      W=lasagne.init.GlorotUniform())
+  l_conv2 = lasagne.layers.Conv2DLayer(
+      l_conv1,
+      num_filters=24,
+      filter_size=(5, 5),
+      pad="same",
+      nonlinearity=lasagne.nonlinearities.rectify,
+      W=lasagne.init.GlorotUniform())
+  l_conv3 = lasagne.layers.Conv2DLayer(
+      l_conv2,
+      num_filters=12,
+      filter_size=(5, 5),
+      pad="same",
+      nonlinearity=lasagne.nonlinearities.rectify,
+      W=lasagne.init.GlorotUniform())
+  l_conv4 = lasagne.layers.Conv2DLayer(
+      l_conv3,
+      num_filters=6,
+      filter_size=(3, 3),
+      pad="same",
+      nonlinearity=lasagne.nonlinearities.rectify,
+      W=lasagne.init.GlorotUniform())
+
+  # Dropout
+  l_dropout = lasagne.layers.DropoutLayer(
+      l_conv4,
+      p=0.5)
+
+  # Output a 3-channel image with RGB values between 0 and 1.
+  l_conv5 = lasagne.layers.Conv2DLayer(
+      l_dropout,
+      num_filters=3,
+      filter_size=(3, 3),
+      pad="same",
+      nonlinearity=lasagne.nonlinearities.sigmoid)
+
+  # Flip the index of the channel so that outputs are in the proper
+  # format for scipy color images: (height, width, rgb)
+  l_outshuf = lasagne.layers.DimshuffleLayer(
+      l_conv5,
+      (0, 2, 3, 1))
+  return l_outshuf
+
+
+COLORIZER_NET = BaseNet(BuildColorizerNet, lambda t: 1 - (t / 255))
 
 
 # --------------------------------------------------------------------------- #
@@ -222,7 +294,7 @@ def BuildColorStatsNet(input_var, height, width):
   # Shuffle them into 1-channel images.
   l_inshuf = lasagne.layers.DimshuffleLayer(
       l_in,
-      (0, 'x', 1, 2))
+      (0, "x", 1, 2))
 
   # Apply several convolutional layers and max pooling layers.
   l_conv1 = lasagne.layers.Conv2DLayer(
@@ -275,49 +347,50 @@ def BuildDeepColorStatsNet(input_var, height, width):
   # Shuffle them into 1-channel images.
   l_inshuf = lasagne.layers.DimshuffleLayer(
       l_in,
-      (0, 'x', 1, 2))
+      (0, "x", 1, 2))
 
-  # Apply several convolutional layers and max pooling layers.
+  # Two convolutionl layers followed by a pooling layer.
   l_conv1 = lasagne.layers.Conv2DLayer(
       l_inshuf,
       num_filters=24,
       filter_size=(5, 5),
       nonlinearity=lasagne.nonlinearities.leaky_rectify,
       W=lasagne.init.GlorotUniform())
-  l_pool1 = lasagne.layers.MaxPool2DLayer(
-      l_conv1,
-      pool_size=(2, 2))
   l_conv2 = lasagne.layers.Conv2DLayer(
-      l_pool1,
+      l_conv1,
       num_filters=12,
       filter_size=(5, 5),
       nonlinearity=lasagne.nonlinearities.leaky_rectify,
       W=lasagne.init.GlorotUniform())
-  l_pool2 = lasagne.layers.MaxPool2DLayer(
+  l_pool1 = lasagne.layers.MaxPool2DLayer(
       l_conv2,
       pool_size=(2, 2))
+
+  # Two more conv layers followed by a pooling layer.
   l_conv3 = lasagne.layers.Conv2DLayer(
-      l_pool2,
+      l_pool1,
       num_filters=6,
       filter_size=(3, 3),
       nonlinearity=lasagne.nonlinearities.leaky_rectify,
       W=lasagne.init.GlorotUniform())
-  l_pool3 = lasagne.layers.MaxPool2DLayer(
-      l_conv3,
-      pool_size=(2, 2))
   l_conv4 = lasagne.layers.Conv2DLayer(
-      l_pool3,
+      l_conv3,
       num_filters=6,
       filter_size=(3, 3),
       nonlinearity=lasagne.nonlinearities.leaky_rectify,
       W=lasagne.init.GlorotUniform())
-  l_pool4 = lasagne.layers.MaxPool2DLayer(
+  l_pool2 = lasagne.layers.MaxPool2DLayer(
       l_conv4,
       pool_size=(2, 2))
 
+  # Dropout
+  l_dropout = lasagne.layers.DropoutLayer(
+      l_pool2,
+      p=0.5)
+
   # Fully connected hidden layer.
   l_hidden = lasagne.layers.DenseLayer(
-      l_pool4,
+      l_dropout,
       num_units=100,
       nonlinearity=lasagne.nonlinearities.leaky_rectify,
       W=lasagne.init.GlorotUniform())

@@ -87,14 +87,16 @@ def CreateTheanoExprs(base_net, height, width, learning_rate):
   return net, train_fn, val_fn, prediction, target_var, transformed_target
 
 
-def PrintNetworkShape(net):
-    print "{layer} {inshape} => {outshape}".format(
-        layer=net.__class__.__name__,
-        inshape=getattr(net, "input_shape", ""),
-        outshape=getattr(net, "output_shape", ""))
-    input_layer = getattr(net, "input_layer", None)
-    if input_layer:
-        PrintNetworkShape(input_layer)
+def PrintNetworkShape(net, count_params=True):
+  if count_params:
+    print "Net has {p} parameters.".format(p=lasagne.layers.count_params(net))
+  print "{layer} {inshape} => {outshape}".format(
+      layer=net.__class__.__name__,
+      inshape=getattr(net, "input_shape", ""),
+      outshape=getattr(net, "output_shape", ""))
+  input_layer = getattr(net, "input_layer", None)
+  if input_layer:
+      PrintNetworkShape(input_layer, count_params=False)
 
 
 # --------------------------------------------------------------------------- #

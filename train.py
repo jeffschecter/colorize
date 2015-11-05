@@ -108,7 +108,9 @@ def Test(batch_size, test_images, net, val_fn):
 def Train(num_batches, validate_every_n_batches,
           height, width, batch_size, reps_per_batch,
           image_handles, val_set_size, test_set_size,
-          net, train_fn, val_fn):
+          net, train_fn, val_fn,
+          checkpoint_every_n_batches=0,
+          checkpoint_path=None):
   # This works with any network and training regimen where the input and
   # targets are both functions of the same color source image.
 
@@ -176,6 +178,12 @@ def Train(num_batches, validate_every_n_batches,
              "Error = {e:.5f}.\n").format(
                 s=len(val_images), t=val_time, e=np.mean(val_errs))
 
+    # Checkpoint model parameters
+    if (checkpoint_path and (b + 1) % checkpoint_every_n_batches == 0):
+      print "Checkpointing..."
+      outpath = checkpoint_path + "-{b}.npz".format(b=b)
+      convnets.SaveNet(net, outpath)
+
     # So we know the next batch of training images is ready
     image_loader_process.join()
     batch_stats.append((b, batch_err, batch_time, image_load_timer.value))
@@ -191,28 +199,46 @@ def Train(num_batches, validate_every_n_batches,
 IMDIR = "images/raw"
 
 
-def main(net_name, save_path, arg_str=""):
-  arg_kvs = [kv.split("=") for kv in arg_str.split(",") if "=" in kv]
-  arg_dict = dict((k, int(v)) for k, v in arg_kvs)
-  start_time = int(time.time())
-  print "Building net..."
+def main(net_name, save_path, arg_str="", checkpoint=None):
+  # Parse args
   base_net = getattr(convnets, net_name)
   net_args = base_net.train_args
+  arg_kvs = [kv.split("=") for kv in arg_str.split(",") if "=" in kv]
+  arg_dict = dict((k, int(v)) for k, v in arg_kvs)
   arg = lambda arg, default: arg_dict.get(arg) or net_args.get(arg, default)
-  theano_exprs = convnets.CreateTheanoExprs(
+  size = arg("size", 128)
+  checkpoint_every_n_batches = arg("checkpoint_every_n_batches", 0)
+  learning_rate = 0.001
+
+  # Build or load the net
+  print "Building net..."
+  if checkpoint:
+    theano_exprs = convnets.LoadSavedNet(
       base_net=base_net,
-      height=arg("size", 128),
-      width=arg("size", 128),
-      learning_rate=arg("learning_rate", 0.001))
+      height=size,
+      width=size,
+      npz_path=checkpoint,
+      learning_rate=learning_rate)
+  else:
+    theano_exprs = convnets.CreateTheanoExprs(
+        base_net=base_net,
+        height=size,
+        width=size,
+        learning_rate=arg("learning_rate", 0.001))
   net, train_fn, val_fn = theano_exprs[:3]
   convnets.PrintNetworkShape(net)
+
+  # Train
   handles = [os.path.join(IMDIR, h) for h in os.listdir(IMDIR)]
+  start_time = int(time.time())
+  outhandle_name = "{n}-{t}".format(n=net_name, t=start_time)
+  outpath = os.path.join(save_path, "{n}.npz".format(n=outhandle_name))
   try:
     batch_stats, val_stats, err, net = Train(
         num_batches=arg("num_batches", 100),
         validate_every_n_batches=arg("validate_every_n_batches", 5),
-        height=arg("size", 128),
-        width=arg("size", 128),
+        height=size,
+        width=size,
         batch_size=arg("batch_size", 100),
         reps_per_batch=arg("reps_per_batch", 1),
         image_handles=handles,
@@ -220,13 +246,12 @@ def main(net_name, save_path, arg_str=""):
         test_set_size=arg("test_set_size", 1000),
         net=net,
         train_fn=train_fn,
-        val_fn=val_fn)
+        val_fn=val_fn,
+        checkpoint_every_n_batches=checkpoint_every_n_batches,
+        checkpoint_path=outhandle_name if checkpoint_every_n_batches else None)
   finally:
-    outpath = os.path.join(save_path, "{n}-{t}.npz".format(
-        n=net_name, t=start_time))
     print "\n\nSaving model to {o}\n\n".format(o=outpath)
     convnets.SaveNet(net, outpath)
-  return batch_stats, val_stats, err, net, theano_exprs
 
 
 if __name__ == "__main__":

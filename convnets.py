@@ -264,6 +264,78 @@ COLORIZER_NET = BaseNet(BuildColorizerNet, lambda t: 1 - (t / 255))
 
 
 # --------------------------------------------------------------------------- #
+# As above, but narrower / less wasteful receptive fields.                    #
+# --------------------------------------------------------------------------- #
+
+def BuildNarrowColorizerNet(input_var, height, width):
+  # Inputs are greyscale images.
+  l_in = lasagne.layers.InputLayer(
+      shape=(None, height, width),
+      input_var=input_var)
+
+  # Shuffle them into 1-channel images. 
+  l_inshuf = lasagne.layers.DimshuffleLayer(
+      l_in,
+      (0, "x", 1, 2))
+  
+  # Apply several convolutional layers. Start with a large number of kernels
+  # with a broad receptive field. Gradually narrow down the number of chanels.
+  l_conv1 = lasagne.layers.Conv2DLayer(
+      l_inshuf,
+      num_filters=24,
+      filter_size=(3, 3),
+      pad="same",
+      nonlinearity=lasagne.nonlinearities.rectify,
+      W=lasagne.init.GlorotUniform())
+  l_conv2 = lasagne.layers.Conv2DLayer(
+      l_conv1,
+      num_filters=24,
+      filter_size=(3, 3),
+      pad="same",
+      nonlinearity=lasagne.nonlinearities.rectify,
+      W=lasagne.init.GlorotUniform())
+  l_conv3 = lasagne.layers.Conv2DLayer(
+      l_conv2,
+      num_filters=12,
+      filter_size=(3, 3),
+      pad="same",
+      nonlinearity=lasagne.nonlinearities.rectify,
+      W=lasagne.init.GlorotUniform())
+  l_conv4 = lasagne.layers.Conv2DLayer(
+      l_conv3,
+      num_filters=6,
+      filter_size=(3, 3),
+      pad="same",
+      nonlinearity=lasagne.nonlinearities.rectify,
+      W=lasagne.init.GlorotUniform())
+
+  # Dropout
+  l_dropout = lasagne.layers.DropoutLayer(
+      l_conv4,
+      p=0.5)
+
+  # Output a 3-channel image with RGB values between 0 and 1.
+  l_conv5 = lasagne.layers.Conv2DLayer(
+      l_dropout,
+      num_filters=3,
+      filter_size=(3, 3),
+      pad="same",
+      nonlinearity=lasagne.nonlinearities.sigmoid)
+
+  # Flip the index of the channel so that outputs are in the proper
+  # format for scipy color images: (height, width, rgb)
+  l_outshuf = lasagne.layers.DimshuffleLayer(
+      l_conv5,
+      (0, 2, 3, 1))
+  return l_outshuf
+
+
+NARROW_COLORIZER_NET = BaseNet(
+    BuildNarrowColorizerNet,
+    lambda t: 1 - (t / 255))
+
+
+# --------------------------------------------------------------------------- #
 # Takes a greyscale image. Learns to reconstruct the mean and standard        #
 # deviation of the color histogram for each color channel in the original     #
 # source image.                                                               #

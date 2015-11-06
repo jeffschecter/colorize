@@ -28,6 +28,7 @@ def ScaledSigmoid(beta):
     return beta * T.nnet.sigmoid(x)
   return Sig
 
+
 def ScaledTanh(beta):
   def Tanh(x):
     return beta * T.tanh(x)
